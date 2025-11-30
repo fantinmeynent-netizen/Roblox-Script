@@ -1,0 +1,360 @@
+-- WaveAI - SPDM Team | Victim Menu V2 (UI inchangée + Fling modifié + SilentFling retiré)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local lp = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+
+
+
+------------------------------------------------------------
+-- [ UI SYSTEM ]
+------------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "Victim Menu V2"; gui.ResetOnSpawn = false
+gui.Parent = lp:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 250)
+frame.Position = UDim2.new(0.35, 0, 0.4, 0)
+frame.BackgroundColor3 = Color3.fromRGB(240,240,240)
+frame.BorderColor3 = Color3.fromRGB(240,240,240)
+frame.Active = true; frame.Draggable = true
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0.99,0,0,22)
+title.Position = UDim2.new(0,0,0,8)
+title.Text = "Victim Menu"
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
+title.TextColor3 = Color3.new(0,0,0)
+title.BackgroundColor3 = Color3.fromRGB(240,240,240)
+title.BorderColor3 = Color3.fromRGB(200,200,200)
+title.Parent = frame
+
+
+
+------------------------------------------------------------
+-- [ PLAYER AUTOCOMPLETE ]
+------------------------------------------------------------
+local PlayerTarget
+
+local nameBox = Instance.new("TextBox")
+nameBox.Size = UDim2.new(0.85, 0, 0, 24)
+nameBox.Position = UDim2.new(0.5, 0, 0, 36)
+nameBox.AnchorPoint = Vector2.new(0.5,0)
+nameBox.PlaceholderText = "Victim Name"
+nameBox.Font = Enum.Font.SourceSans
+nameBox.TextSize = 16
+nameBox.TextColor3 = Color3.new(0,0,0)
+nameBox.BackgroundColor3 = Color3.fromRGB(255,255,255)
+nameBox.BorderColor3 = Color3.fromRGB(210,210,210)
+nameBox.Parent = frame
+
+local function matchPlayer(q)
+	q = (q or ""):lower()
+	if #q < 3 then return end
+	local best
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p ~= lp then
+			local n, d = p.Name:lower(), (p.DisplayName or ""):lower()
+			if n:sub(1,#q)==q or d:sub(1,#q)==q then best = p break end
+			if not best and (n:find(q,1,true) or d:find(q,1,true)) then best = p end
+		end
+	end
+	return best
+end
+
+nameBox.FocusLost:Connect(function(enter)
+	if not enter then return end
+	local p = matchPlayer(nameBox.Text)
+	if p then
+		PlayerTarget = p
+		nameBox.Text = p.Name
+		nameBox.CursorPosition = #nameBox.Text + 1
+	end
+end)
+
+
+
+------------------------------------------------------------
+-- [ BUTTON SCROLL AREA ]
+------------------------------------------------------------
+local scroll = Instance.new("ScrollingFrame")
+scroll.Parent = frame
+scroll.Size = UDim2.new(1, -10, 0, 170)
+scroll.Position = UDim2.new(0, 5, 0, 66)
+scroll.BackgroundColor3 = Color3.fromRGB(240,240,240)
+scroll.BorderColor3 = frame.BorderColor3
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+scroll.ScrollBarThickness = 6
+scroll.ScrollBarImageColor3 = Color3.fromRGB(255,255,255)
+
+local list = Instance.new("UIListLayout", scroll)
+list.FillDirection = Enum.FillDirection.Vertical
+list.SortOrder = Enum.SortOrder.LayoutOrder
+list.Padding = UDim.new(0, 8)
+list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function styleButton(btn, text)
+	btn.Size = UDim2.new(0.7,0,0,28)
+	btn.Text = text
+	btn.Font = Enum.Font.SourceSans
+	btn.TextSize = 15
+	btn.TextColor3 = Color3.new(0,0,0)
+	btn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+	btn.BorderColor3 = Color3.fromRGB(210,210,210)
+	btn.Parent = scroll
+end
+
+
+
+------------------------------------------------------------
+-- [ VIEW / CAMERA SYSTEM ]
+------------------------------------------------------------
+local viewingConn
+
+local function setSubjectFromChar(char)
+	if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then cam.CameraSubject = hum return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then cam.CameraSubject = hrp end
+end
+
+local function Goto(p)
+	if not p or not p.Character then return end
+	local tHRP = p.Character:FindFirstChild("HumanoidRootPart")
+	local myChar = lp.Character or lp.CharacterAdded:Wait()
+	local destPos = tHRP.Position + (tHRP.CFrame.LookVector * -3) + Vector3.new(0, 2, 0)
+	local destCF = CFrame.new(destPos, tHRP.Position)
+	if myChar.PrimaryPart == nil then myChar.PrimaryPart = myChar:FindFirstChild("HumanoidRootPart") end
+	if myChar.PrimaryPart then myChar:PivotTo(destCF)
+	else
+		local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+		if myHRP then myHRP.CFrame = destCF end
+	end
+end
+
+local function View(p)
+	if not p then return end
+	if viewingConn then viewingConn:Disconnect() viewingConn = nil end
+	setSubjectFromChar(p.Character)
+	viewingConn = p.CharacterAdded:Connect(function(nc)
+		nc:WaitForChild("Humanoid", 10)
+		setSubjectFromChar(nc)
+	end)
+end
+
+local function Unview()
+	if viewingConn then viewingConn:Disconnect() viewingConn = nil end
+	local myChar = lp.Character or lp.CharacterAdded:Wait()
+	myChar:WaitForChild("Humanoid")
+	setSubjectFromChar(myChar)
+end
+
+
+
+------------------------------------------------------------
+-- [ FORCE RESET UTIL ]
+------------------------------------------------------------
+local function resetForces(char)
+	if not char then return end
+	for _,d in ipairs(char:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.AssemblyLinearVelocity = Vector3.new()
+			d.AssemblyAngularVelocity = Vector3.new()
+		end
+		if d:IsA("BodyVelocity") or d:IsA("BodyAngularVelocity")
+		or d:IsA("BodyPosition") or d:IsA("BodyGyro")
+		or d:IsA("VectorForce") or d:IsA("Torque")
+		or d:IsA("AlignPosition") or d:IsA("AlignOrientation")
+		or d:IsA("LinearVelocity") or d:IsA("AngularVelocity") then
+			d:Destroy()
+		end
+	end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.Sit = false
+		hum.PlatformStand = false
+		hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+	end
+end
+
+
+
+------------------------------------------------------------
+-- [ NEW TRUE-TP FLING ]
+------------------------------------------------------------
+local hiddenfling, flingThread, savedCF = false, nil, nil
+local flingPower = 55000
+local flingGeneration = 0
+local FlingPair
+
+local function startHiddenFling(target, gen, sourceChar)
+	if flingThread then return end
+
+	flingThread = task.spawn(function()
+		local char = sourceChar
+
+		while hiddenfling and flingGeneration == gen do
+			RunService.Heartbeat:Wait()
+
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			if not hrp then continue end
+
+			local tHRP = target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+			if not tHRP then continue end
+
+			local offsetY = math.sin(tick() * 110) * 0.10
+			local offsetZ = math.cos(tick() * 110) * 0.04
+
+			hrp.CFrame = CFrame.new(tHRP.Position) * CFrame.new(0, offsetY, offsetZ)
+
+			hrp.AssemblyLinearVelocity = Vector3.new(0, flingPower, 0)
+			hrp.AssemblyAngularVelocity = Vector3.new()
+		end
+	end)
+end
+
+local function Unfling()
+	if not hiddenfling then return end
+	hiddenfling = false
+	flingThread = nil
+	task.wait()
+
+	local myChar = lp.Character or lp.CharacterAdded:Wait()
+	resetForces(myChar)
+
+	if savedCF then myChar:PivotTo(savedCF) end
+	if FlingPair and FlingPair.set then FlingPair.set(true) end
+end
+
+local function Fling(p)
+	if hiddenfling then return end
+	local myChar = lp.Character or lp.CharacterAdded:Wait()
+	myChar:WaitForChild("HumanoidRootPart")
+
+	savedCF = myChar:GetPivot()
+	hiddenfling = true
+	flingGeneration += 1
+	local gen = flingGeneration
+
+	startHiddenFling(p, gen, myChar)
+
+	task.delay(10, function()
+		if hiddenfling and flingGeneration == gen then
+			Unfling()
+		end
+	end)
+end
+
+
+
+------------------------------------------------------------
+-- [ SILENT FLING REMOVED ]
+------------------------------------------------------------
+-- (entièrement supprimé)
+
+
+
+------------------------------------------------------------
+-- [ FORCE RESET ]
+------------------------------------------------------------
+local function ForceReset()
+	local ch = lp.Character
+	local hum = ch:FindFirstChildOfClass("Humanoid")
+	if hum then hum.Health = 0 end
+	ch:BreakJoints()
+end
+
+
+
+------------------------------------------------------------
+-- [ NO FOG ]
+------------------------------------------------------------
+local function NoFog()
+	Lighting.FogStart = 0
+	Lighting.FogEnd = 1e9
+	for _,inst in ipairs(Lighting:GetChildren()) do
+		if inst:IsA("Atmosphere") then inst:Destroy() end
+	end
+end
+
+
+
+------------------------------------------------------------
+-- [ FULL BRIGHT ]
+------------------------------------------------------------
+local fullBrightOn = false
+local savedLight = {}
+
+local function FullBright()
+	if not fullBrightOn then
+		savedLight.Brightness = Lighting.Brightness
+		savedLight.ClockTime = Lighting.ClockTime
+		savedLight.Ambient = Lighting.Ambient
+		savedLight.OutdoorAmbient = Lighting.OutdoorAmbient
+		savedLight.ColorShift_Top = Lighting.ColorShift_Top
+		savedLight.ColorShift_Bottom = Lighting.ColorShift_Bottom
+		Lighting.Brightness = 3
+		Lighting.ClockTime = 14
+		Lighting.Ambient = Color3.new(1,1,1)
+		Lighting.OutdoorAmbient = Color3.new(1,1,1)
+		Lighting.ColorShift_Top = Color3.new(1,1,1)
+		Lighting.ColorShift_Bottom = Color3.new(1,1,1)
+		NoFog()
+		fullBrightOn = true
+	else
+		Lighting.Brightness = savedLight.Brightness
+		Lighting.ClockTime = savedLight.ClockTime
+		Lighting.Ambient = savedLight.Ambient
+		Lighting.OutdoorAmbient = savedLight.OutdoorAmbient
+		Lighting.ColorShift_Top = savedLight.ColorShift_Top
+		Lighting.ColorShift_Bottom = savedLight.ColorShift_Bottom
+		fullBrightOn = false
+	end
+end
+
+
+
+------------------------------------------------------------
+-- [ BUTTONS SYSTEM ]
+------------------------------------------------------------
+local function makePair(labelA, fnA, labelB, fnB)
+	local btn = Instance.new("TextButton")
+	styleButton(btn, labelA)
+	local stateA = true
+	local function set(toA)
+		stateA = toA
+		btn.Text = toA and labelA or labelB
+	end
+	btn.MouseButton1Click:Connect(function()
+		if stateA then fnA(PlayerTarget); set(false) else fnB(PlayerTarget); set(true) end
+	end)
+	return {button = btn, set = set}
+end
+
+local function makeClick(label, fn)
+	local btn = Instance.new("TextButton")
+	styleButton(btn, label)
+	btn.MouseButton1Click:Connect(function() fn() end)
+end
+
+makeClick("Goto", function() Goto(PlayerTarget) end)
+makePair("View", View, "Unview", Unview)
+makePair("Target", Target, "Untarget", Untarget)
+
+FlingPair = makePair("Fling", Fling, "Unfling", Unfling)
+
+makePair("Invisible",
+	function() print("Invisible", PlayerTarget and PlayerTarget.Name) end,
+	function() print("Visible", PlayerTarget and PlayerTarget.Name) end
+)
+
+makeClick("ForceReset", ForceReset)
+makeClick("NoFog", NoFog)
+makeClick("FullBright", FullBright)
