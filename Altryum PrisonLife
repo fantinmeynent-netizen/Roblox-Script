@@ -1,0 +1,483 @@
+    ----------------------------------------------------------
+    -----------------------UI---------------------------------
+    ----------------------------------------------------------
+
+    local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+
+
+    local Window = WindUI:CreateWindow({
+        Title = "Altryum PrisonLife",
+        Icon = "door-open", -- lucide icon
+        Author = "by .ftgs and .ftgs",
+        Folder = "Altryum PrisonLife",
+        
+        -- ↓ This all is Optional. You can remove it.
+        Size = UDim2.fromOffset(580, 460),
+        MinSize = Vector2.new(560, 350),
+        MaxSize = Vector2.new(850, 560),
+        Transparent = true,
+        Theme = "Dark",
+        Resizable = true,
+        SideBarWidth = 200,
+        BackgroundImageTransparency = 0.42,
+        HideSearchBar = true,
+        ScrollBarEnabled = false,
+        
+        
+        -- ↓ Optional. You can remove it.
+        User = {
+            Enabled = true,
+            Anonymous = false,
+            Callback = function()
+            end,
+        },
+
+    })
+
+    Window:EditOpenButton({
+        Title = "Altryum Prison Life",
+        Icon = "monitor",
+        CornerRadius = UDim.new(0,16),
+        StrokeThickness = 2,
+        Color = ColorSequence.new( -- gradient
+            Color3.new(0.058824, 0.309804, 1.000000), 
+            Color3.fromHex("F89B29")
+        ),
+        OnlyMobile = false,
+        Enabled = true,
+        Draggable = true,
+    })
+
+    ----------------------------------------------------------
+    -----------------------Tab Handling-----------------------
+    ----------------------------------------------------------
+
+    local CombatTab = Window:Tab({
+        Title = "Combat",
+        Icon = "target", -- optional
+        Locked = false,
+        
+    })
+
+
+    local MovementTab = Window:Tab({
+        Title = "Movement",
+        Icon = "footprints", -- optional
+        Locked = false,
+    })
+
+    local PlayerTab = Window:Tab({
+        Title = "Player",
+        Icon = "circle-user", -- optional
+        Locked = false,
+    })
+
+    local TpPointTab = Window:Tab({
+        Title = "Tp Point",
+        Icon = "map-pin", -- optional
+        Locked = false,
+    })
+
+    local ExploitTab = Window:Tab({
+        Title = "Exploit",
+        Icon = "bug", -- optional
+        Locked = false,
+    })
+
+    local SettingsTab = Window:Tab({
+        Title = "Settings",
+        Icon = "settings", -- optional
+        Locked = false,
+    })
+
+
+    CombatTab:Select() -- Select Tab
+
+    ----------------------------------------------------------
+    -----------------------Combat Tab-------------------------
+    ----------------------------------------------------------
+
+    -- =============== KILL AURA TOGGLE ===============
+    CombatTab:Toggle({
+        Title = "Kill Aura",
+        Desc = "Turn on the kill aura",
+        Value = false,
+        Callback = function(state)
+
+            -- STORAGE INTERNE AU TOGGLE
+            if not getgenv()._KA then
+                getgenv()._KA = {
+                    Enabled = false,
+                    Loop = nil,
+                    FriendCheck = false
+                }
+            end
+
+            local data = getgenv()._KA
+            local Players = game:GetService("Players")
+            local lp = Players.LocalPlayer
+            local RS = game:GetService("ReplicatedStorage")
+            local meleeEvent = RS:WaitForChild("meleeEvent")
+            local RunService = game:GetService("RunService")
+
+            data.Enabled = state
+
+            -- STOP AURA
+            if not state then
+                if data.Loop then data.Loop:Disconnect() end
+                data.Loop = nil
+                return
+            end
+
+            -- START AURA LOOP
+            data.Loop = RunService.Heartbeat:Connect(function()
+                local char = lp.Character
+                if not char then return end
+
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if not root then return end
+
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= lp and plr.Character then
+                        
+                        -- FRIEND CHECK
+                        if data.FriendCheck then
+                            local ok, isFriend = pcall(function()
+                                return lp:IsFriendsWith(plr.UserId)
+                            end)
+                            if ok and isFriend then
+                                continue
+                            end
+                        end
+
+                        local enemyRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if enemyRoot then
+
+                            -- 🔥 NE HIT QUE SI ≤ 10 STUDS
+                            local distance = (enemyRoot.Position - root.Position).Magnitude
+                            if distance <= 10 then
+                                meleeEvent:FireServer(plr)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    })
+
+
+    -- =============== FRIEND CHECK ===============
+    CombatTab:Toggle({
+        Title = "Friend Check",
+        Desc = "Don't hit Roblox friends",
+        Value = false,
+        Callback = function(state)
+
+            if not getgenv()._KA then
+                getgenv()._KA = {
+                    Enabled = false,
+                    Loop = nil,
+                    FriendCheck = false
+                }
+            end
+
+            -- ✔ ON = n’attaque pas les amis
+            -- ✔ OFF = recommence automatiquement à les frapper
+            getgenv()._KA.FriendCheck = state
+        end
+    })
+
+
+
+
+    ----------------------------------------------------------
+    -----------------------Movement Tab-----------------------
+    ----------------------------------------------------------
+    local FLYING = false
+    local flySpeed = 1
+    local keyDown, keyUp
+    local BV, BG
+    local flyConn
+
+    local function getRoot(char)
+        return char and char:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function stopFly()
+        FLYING = false
+        if keyDown then keyDown:Disconnect() keyDown = nil end
+        if keyUp then keyUp:Disconnect() keyUp = nil end
+        if flyConn then flyConn:Disconnect() flyConn = nil end
+        if BV then BV:Destroy() BV = nil end
+        if BG then BG:Destroy() BG = nil end
+    end
+
+    local function startFly()
+        stopFly()
+
+        local char = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+        local root = getRoot(char)
+        if not root then return end
+
+        BV = Instance.new("BodyVelocity", root)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        BV.Velocity = Vector3.zero
+        BV.P = 1250
+
+        local lockedCFrame = root.CFrame -- Verrouille orientation actuelle
+
+        BG = Instance.new("BodyGyro", root)
+        BG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        BG.P = 5000
+        BG.D = 500
+        BG.CFrame = lockedCFrame -- Force totale l'orientation d'origine
+
+        local c = {F=0,B=0,L=0,R=0}
+        local UIS = game:GetService("UserInputService")
+        local RunService = game:GetService("RunService")
+
+        keyDown = UIS.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Keyboard then
+                if i.KeyCode==Enum.KeyCode.W then c.F=1
+                elseif i.KeyCode==Enum.KeyCode.S then c.B=-1
+                elseif i.KeyCode==Enum.KeyCode.A then c.L=-1
+                elseif i.KeyCode==Enum.KeyCode.D then c.R=1 end
+            end
+        end)
+
+        keyUp = UIS.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Keyboard then
+                if i.KeyCode==Enum.KeyCode.W then c.F=0
+                elseif i.KeyCode==Enum.KeyCode.S then c.B=0
+                elseif i.KeyCode==Enum.KeyCode.A then c.L=0
+                elseif i.KeyCode==Enum.KeyCode.D then c.R=0 end
+            end
+        end)
+
+        FLYING = true
+
+        flyConn = RunService.RenderStepped:Connect(function()
+            if not FLYING then return end
+
+            local cam = workspace.CurrentCamera
+            local move = cam.CFrame.LookVector * (c.F + c.B) + cam.CFrame.RightVector * (c.R + c.L)
+
+            if move.Magnitude > 0 then
+                BV.Velocity = move.Unit * (flySpeed * 2.5)
+            else
+                BV.Velocity = Vector3.zero
+            end
+
+            if BG then
+                BG.CFrame = CFrame.new(root.Position) * CFrame.Angles(select(1, lockedCFrame:ToEulerAnglesYXZ()))
+            end
+        end)
+    end
+
+    MovementTab:Toggle({
+        Title = "Vehicle Fly",
+        Default = false,
+        Callback = function(s)
+            if s then startFly() else stopFly() end
+        end
+    })
+
+    MovementTab:Slider({
+        Title = "Fly Speed",
+        Value = {Min = 1, Max = 100, Default = 1},
+        Callback = function(v)
+            flySpeed = v
+        end
+    })
+
+
+----------------------------------------------------------
+-----------------------TpPoint Tab------------------------
+----------------------------------------------------------
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local function TpOverload(pos)
+    local meleeRemote = ReplicatedStorage:WaitForChild("meleeEvent")
+    local char = LocalPlayer.Character
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    local spam = true
+
+    local isSitting = humanoid and humanoid.Sit
+
+    -- Variables pour Wheels si en voiture
+    local savedWelds = {}
+    local foundWheels = {}
+
+    if isSitting then
+        local carContainer = workspace:FindFirstChild("CarContainer")
+        if carContainer then
+            local nearestDist = math.huge
+            local nearestCar = nil
+
+            -- Trouver la voiture la plus proche
+            for _, car in ipairs(carContainer:GetChildren()) do
+                local wheels = car:FindFirstChild("Wheels")
+                if wheels then
+                    local carCenter = car:FindFirstChild("PrimaryPart") or wheels:FindFirstChildWhichIsA("BasePart")
+                    if carCenter then
+                        local dist = (carCenter.Position - hrp.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearestCar = car
+                        end
+                    end
+                end
+            end
+
+            if nearestCar then
+                local wheelsFolder = nearestCar:FindFirstChild("Wheels")
+                if wheelsFolder then
+                    for _, wheel in ipairs(wheelsFolder:GetChildren()) do
+                        if wheel:IsA("BasePart") then
+                            -- Sauvegarde les welds pour recoller après
+                            for _, weld in ipairs(wheel:GetChildren()) do
+                                if weld:IsA("WeldConstraint") or weld:IsA("Motor6D") then
+                                    table.insert(savedWelds, {wheel = wheel, weld = weld})
+                                    weld.Enabled = false
+                                end
+                            end
+                            table.insert(foundWheels, wheel)
+                        end
+                    end
+                end
+            end
+        end
+    else
+        hrp.CFrame = hrp.CFrame - Vector3.new(0, 10, 0)
+        hrp.Anchored = true
+    end
+
+    task.spawn(function()
+        while spam do
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if dist > 15 then
+                        meleeRemote:FireServer(plr)
+                    end
+                end
+            end
+            task.wait()
+        end
+    end)
+
+    task.wait(1)
+    hrp.CFrame = CFrame.new(pos)
+
+    -- Recolle les wheels si en voiture
+    if isSitting then
+        for _, data in ipairs(savedWelds) do
+            if data.weld then
+                data.weld.Enabled = true
+            end
+        end
+    else
+        hrp.Anchored = false
+    end
+
+    task.wait(0.2)
+    spam = false
+end
+
+
+
+
+
+TpPointTab:Button({ 
+    Title = "Criminal Base", 
+    Desc = "Tp to Criminal base", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(-947, 94, 2059))
+    end
+})
+
+TpPointTab:Button({ 
+    Title = "Cafeteria", 
+    Desc = "Tp to Cafeteria", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(917, 100, 2321))
+    end
+})
+
+TpPointTab:Button({ 
+    Title = "Police Base", 
+    Desc = "Tp to Police Base", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(826, 100, 2293))
+    end
+})
+
+TpPointTab:Button({ 
+    Title = "Prison Parking", 
+    Desc = "Tp to Prison Parking", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(581, 98, 2277))
+    end
+})
+
+
+
+
+
+
+----------------------------------------------------------
+----------------------Exploit Tab-------------------------
+----------------------------------------------------------
+
+    local Button = ExploitTab:Button({
+        Title = "Anti Tase",
+        Desc = "Fix speed when tased",
+        Locked = false,
+        Callback = function()
+
+            -- init interne
+            if not getgenv()._AntiTaseFix then
+                getgenv()._AntiTaseFix = {
+                    Enabled = false,
+                    Loop = nil
+                }
+            end
+
+            local data = getgenv()._AntiTaseFix
+
+            -- toggle
+            data.Enabled = not data.Enabled
+
+            -- stop
+            if not data.Enabled then
+                if data.Loop then data.Loop:Disconnect() end
+                data.Loop = nil
+                return
+            end
+
+            -- start loop
+            data.Loop = game:GetService("RunService").Heartbeat:Connect(function()
+                local char = game.Players.LocalPlayer.Character
+                if not char then return end
+                
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum then return end
+
+                -- PATCH anti tase : si speed tombe à 0 → restore
+                if hum.WalkSpeed == 0 or hum.WalkSpeed < 10 then
+                    hum.WalkSpeed = 16
+                    hum.JumpPower = 50
+                end
+            end)
+        end
+    })
+
