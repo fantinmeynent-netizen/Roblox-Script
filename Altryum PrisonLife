@@ -291,6 +291,41 @@
         end
     })
 
+----------------------------------------------------------
+-----------------------Player Tab-------------------------
+----------------------------------------------------------
+local humanoid = game.Players.LocalPlayer.Character:WaitForChild("Humanoid")
+humanoid.UseJumpPower = true
+
+    
+local Slider = PlayerTab:Slider({
+    Title = "Walk Speed",
+    Desc = "",
+    Step = 1,
+    Value = {
+        Min = 16,
+        Max = 100,
+        Default = 16,
+    },
+    Callback = function(value)
+        humanoid.WalkSpeed = value
+    end
+})
+
+local Slider = PlayerTab:Slider({
+    Title = "JumpPower",
+    Desc = "",
+    Step = 1,
+    Value = {
+        Min = 50,
+        Max = 150,
+        Default = 50,
+    },
+    Callback = function(value)
+        humanoid.JumpPower = value
+    end
+})
+
 
 ----------------------------------------------------------
 -----------------------TpPoint Tab------------------------
@@ -421,17 +456,58 @@ TpPointTab:Button({
 })
 
 TpPointTab:Button({ 
-    Title = "Prison Parking", 
-    Desc = "Tp to Prison Parking", 
+    Title = "Middle Prison Parking", 
+    Desc = "Tp to middle prsion parking", 
     Locked = false,
     Callback = function()
         TpOverload(Vector3.new(581, 98, 2277))
     end
 })
 
+TpPointTab:Button({ 
+    Title = "Police Armory", 
+    Desc = "Tp to Police Armory", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(830, 100, 2236))
+    end
+})
 
+TpPointTab:Button({ 
+    Title = "Front Police Room", 
+    Desc = "Tp to Front Police Room", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(826, 100, 2354))
+    end
+})
 
+TpPointTab:Button({ 
+    Title = "Prison Cell", 
+    Desc = "Tp to Prison Cell", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(826, 100, 2354))
+    end
+})
 
+TpPointTab:Button({ 
+    Title = "Inside Police Parking", 
+    Desc = "Tp to Police Parking", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(616, 98, 2495))
+    end
+})
+
+TpPointTab:Button({ 
+    Title = "Safe Spot", 
+    Desc = "Tp to Safe Spot", 
+    Locked = false,
+    Callback = function()
+        TpOverload(Vector3.new(-611, 11, 1417))
+    end
+})
 
 
 ----------------------------------------------------------
@@ -480,4 +556,3 @@ TpPointTab:Button({
             end)
         end
     })
-
